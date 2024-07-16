@@ -112,7 +112,8 @@ def run(data,
         config_file=None,
         specific_shape=False,
         height=640,
-        width=640
+        width=640,
+        multi_tasks_classes_numbers = None
         ):
     """ Run the evaluation process
 
@@ -148,7 +149,7 @@ def run(data,
                 shrink_size, infer_on_rect,
                 verbose, do_coco_metric, do_pr_metric,
                 plot_curve, plot_confusion_matrix,
-                specific_shape=specific_shape,height=height, width=width)
+                specific_shape=specific_shape,height=height, width=width, multi_tasks_classes_numbers=multi_tasks_classes_numbers)
     model = val.init_model(model, weights, task)
     dataloader = val.init_data(dataloader, task)
 

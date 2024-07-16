@@ -28,7 +28,7 @@ def xywh2xyxy(x):
     return y
 
 
-def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False, max_det=300):
+def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False, max_det=300, multi_tasks_classes_numbers=None):
     """Runs Non-Maximum Suppression (NMS) on inference results.
     This code is borrowed from: https://github.com/ultralytics/yolov5/blob/47233e1698b89fc437a4fb9463c815e9171be955/utils/general.py#L775
     Args:
@@ -44,7 +44,8 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
          list of detections, echo item is one tensor with shape (num_boxes, 6), 6 is for [xyxy, conf, cls].
     """
 
-    num_classes = prediction.shape[2] - 5  # number of classes
+    num_non_main_classes = 0 if multi_tasks_classes_numbers is None else np.sum(multi_tasks_classes_numbers)
+    num_classes = prediction.shape[2] - 5 - num_non_main_classes # number of classes
     pred_candidates = torch.logical_and(prediction[..., 4] > conf_thres, torch.max(prediction[..., 5:], axis=-1)[0] > conf_thres)  # candidates
     # Check the parameters.
     assert 0 <= conf_thres <= 1, f'conf_thresh must be in 0.0 to 1.0, however {conf_thres} is provided.'
@@ -71,13 +72,23 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
         # (center x, center y, width, height) to (x1, y1, x2, y2)
         box = xywh2xyxy(x[:, :4])
 
+
+        multi_task_scores = []
+        if multi_tasks_classes_numbers is not None:
+            a = 5+num_classes
+            for n in multi_tasks_classes_numbers:
+                conf, class_idx = x[:, a:a+n].max(1, keepdim=True)
+                multi_task_scores.append(conf)
+                multi_task_scores.append(class_idx.float())
+                a += n
+
         # Detections matrix's shape is  (n,6), each row represents (xyxy, conf, cls)
         if multi_label:
-            box_idx, class_idx = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).T
-            x = torch.cat((box[box_idx], x[box_idx, class_idx + 5, None], class_idx[:, None].float()), 1)
+            box_idx, class_idx = (x[:, 5:5+num_classes] > conf_thres).nonzero(as_tuple=False).T
+            x = torch.cat((box[box_idx], x[box_idx, class_idx + 5, None], class_idx[:, None].float(), *multi_task_scores), 1)
         else:  # Only keep the class with highest scores.
-            conf, class_idx = x[:, 5:].max(1, keepdim=True)
-            x = torch.cat((box, conf, class_idx.float()), 1)[conf.view(-1) > conf_thres]
+            conf, class_idx = x[:, 5:5+num_classes].max(1, keepdim=True)
+            x = torch.cat((box, conf, class_idx.float(), *multi_task_scores), 1)[conf.view(-1) > conf_thres]
 
         # Filter by class, only keep boxes whose category is in classes.
         if classes is not None:
@@ -101,5 +112,4 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
         if (time.time() - tik) > time_limit:
             print(f'WARNING: NMS cost time exceed the limited {time_limit}s.')
             break  # time limit exceeded
-
     return output

@@ -3,8 +3,14 @@ train: d:\datasets\WIDER\WIDER_train\images # train images
 val: d:\datasets\WIDER\WIDER_val\images # val images
 # test: ./datasets/WIDER/test # test images (optional)
 
+fed_train: d:\Datasets\Exp-W\data\train\images
+fed_val: d:\Datasets\Exp-W\data\val\images
+
 # whether it is coco dataset, only coco dataset should be set to True.
 is_coco: False
 # Classes
 nc: 1  # number of classes
 names: ['face']  # class names
+
+ne: 7 # number of emotion classes
+fed_names: ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
