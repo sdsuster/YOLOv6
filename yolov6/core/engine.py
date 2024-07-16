@@ -452,7 +452,7 @@ class Trainer:
                                          workers=args.workers, shuffle=True, check_images=args.check_images,
                                          check_labels=args.check_labels, data_dict=data_dict, task='train',
                                          specific_shape=args.specific_shape, height=args.height, width=args.width,
-                                         cache_ram=args.cache_ram)[0]
+                                         cache_ram=args.cache_ram, class_name_path='fed_names')[0]
         # create val dataloader
         val_loader = None
         if args.rank in [-1, 0]:
@@ -462,7 +462,7 @@ class Trainer:
                                            workers=args.workers, check_images=args.check_images,
                                            check_labels=args.check_labels, data_dict=data_dict, task='val',
                                            specific_shape=args.specific_shape, height=args.height, width=args.width,
-                                           cache_ram=args.cache_ram)[0]
+                                           cache_ram=args.cache_ram, class_name_path='fed_names')[0]
 
         return train_loader, val_loader
     

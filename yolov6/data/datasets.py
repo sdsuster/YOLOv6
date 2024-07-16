@@ -71,14 +71,15 @@ class TrainValDataset(Dataset):
         specific_shape = False,
         height=1088,
         width=1920,
-        cache_ram=False
+        cache_ram=False,
+        class_name_path="names"
     ):
         assert task.lower() in ("train", "val", "test", "speed"), f"Not supported task: {task}"
         tik = time.time()
         self.__dict__.update(locals())
         self.main_process = self.rank in (-1, 0)
         self.task = self.task.capitalize()
-        self.class_names = data_dict["names"]
+        self.class_names = data_dict[class_name_path]
         self.img_paths, self.labels = self.get_imgs_labels(self.img_dir)
         self.rect = rect
         self.specific_shape = specific_shape
