@@ -45,6 +45,8 @@ class Detect(nn.Module):
         self.cls_preds_ab = nn.ModuleList()
         self.cls_ped_preds_ab = nn.ModuleList()
         self.reg_preds_ab = nn.ModuleList()
+        self.softmax_ab = torch.nn.Softmax(-1)
+        self.softmax_af = torch.nn.Softmax(-1)
 
         # Efficient decoupled head layers
         for i in range(num_layers):
@@ -60,22 +62,6 @@ class Detect(nn.Module):
             self.cls_ped_preds_ab.append(head_layers[idx+8])
             self.reg_preds_ab.append(head_layers[idx+9])
 
-            if fed_training:
-                
-                for param in head_layers[idx].parameters():
-                        param.requires_grad = False
-                for param in head_layers[idx+1].parameters():
-                        param.requires_grad = False
-                for param in head_layers[idx+3].parameters():
-                        param.requires_grad = False
-                for param in head_layers[idx+4].parameters():
-                        param.requires_grad = False
-                for param in head_layers[idx+6].parameters():
-                        param.requires_grad = False
-                for param in head_layers[idx+7].parameters():
-                        param.requires_grad = False
-                for param in head_layers[idx+9].parameters():
-                        param.requires_grad = False
     def initialize_biases(self):
 
         for conv in self.cls_preds:
@@ -129,6 +115,34 @@ class Detect(nn.Module):
         self.proj = nn.Parameter(torch.linspace(0, self.reg_max, self.reg_max + 1), requires_grad=False)
         self.proj_conv.weight = nn.Parameter(self.proj.view([1, self.reg_max + 1, 1, 1]).clone().detach(),
                                                    requires_grad=False)
+    
+    def freeze_layers(self):
+        for layers in self.stems:
+            for param in layers.parameters():
+                    param.requires_grad = False
+        for layers in self.cls_convs:
+            for param in layers.parameters():
+                    param.requires_grad = False
+        for layers in self.reg_convs:
+            for param in layers.parameters():
+                    param.requires_grad = False
+        for layers in self.cls_preds:
+            for param in layers.parameters():
+                    param.requires_grad = False
+        for layers in self.reg_preds:
+            for param in layers.parameters():
+                    param.requires_grad = False
+        for layers in self.cls_preds_ab:
+            for param in layers.parameters():
+                    param.requires_grad = False
+        for layers in self.reg_preds_ab:
+            for param in layers.parameters():
+                    param.requires_grad = False
+
+        for layers in self.cls_ped_convs:
+            for param in layers.parameters():
+                    param.requires_grad = True
+             
 
     def forward(self, x):
         if self.training:
@@ -174,6 +188,9 @@ class Detect(nn.Module):
                 cls_output_af = self.cls_preds[i](cls_feat)
                 cls_ped_output_af = self.cls_ped_preds[i](cls_ped_feat)
                 reg_output_af = self.reg_preds[i](reg_feat)
+                # for params in self.cls_ped_preds_ab[i].parameters():
+                #      print(params.data)
+                #      break
 
                 cls_output_af = torch.sigmoid(cls_output_af)
                 cls_score_list_af.append(cls_output_af.flatten(2).permute((0, 2, 1)))
@@ -184,13 +201,15 @@ class Detect(nn.Module):
 
             cls_score_list_ab = torch.cat(cls_score_list_ab, axis=1)
             cls_ped_score_list_ab = torch.cat(cls_ped_score_list_ab, axis=1)
-            cls_ped_score_list_ab = torch.softmax(cls_ped_score_list_ab, dim=-1, dtype=torch.float16)
-            cls_ped_score_list_ab *= cls_score_list_ab
+            # cls_ped_score_list_ab = self.softmax_ab(cls_ped_score_list_ab).half()
+            # print(cls_ped_score_list_ab[1, :5, :])
+            # cls_ped_score_list_ab *= cls_score_list_ab
             reg_dist_list_ab = torch.cat(reg_dist_list_ab, axis=1)
             cls_score_list_af = torch.cat(cls_score_list_af, axis=1)
             cls_ped_score_list_af = torch.cat(cls_ped_score_list_af, axis=1)
-            cls_ped_score_list_af = torch.softmax(cls_ped_score_list_af, dim=-1, dtype=torch.float16)
-            cls_ped_score_list_af *= cls_score_list_af
+            # cls_ped_score_list_af = self.softmax_af(cls_ped_score_list_af).half()
+            # print(cls_ped_score_list_af[1, :5, :])
+            # cls_ped_score_list_af *= cls_score_list_af
             reg_dist_list_af = torch.cat(reg_dist_list_af, axis=1)
             return x, cls_score_list_ab, reg_dist_list_ab, cls_score_list_af, reg_dist_list_af, cls_ped_score_list_ab, cls_ped_score_list_af
 

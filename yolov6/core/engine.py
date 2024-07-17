@@ -485,7 +485,6 @@ class Trainer:
                 download_ckpt(weights)
             LOGGER.info(f'Loading state_dict from {weights} for fine-tuning...')
             model = load_state_dict(weights, model, map_location=device)
-
         LOGGER.info('Model: {}'.format(model))
         return model
 

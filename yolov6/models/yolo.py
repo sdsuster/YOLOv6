@@ -30,6 +30,10 @@ class Model(nn.Module):
         # Init weights
         initialize_weights(self)
 
+        if fed_training:
+            self.detect.freeze_layers()
+
+
     def forward(self, x):
         export_mode = torch.onnx.is_in_onnx_export() or self.export
         x = self.backbone(x)
