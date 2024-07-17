@@ -218,7 +218,6 @@ class ComputeLossFED(ComputeLoss):
             anchors, anchor_points, n_anchors_list, stride_tensor = \
                    generate_anchors(feats, self.fpn_strides, self.grid_cell_size, self.grid_cell_offset, device=feats[0].device)
             self.cached_anchors = anchors, anchor_points, n_anchors_list, stride_tensor
-
         assert pred_scores.type() == pred_distri.type()
         gt_bboxes_scale = torch.tensor([batch_width, batch_height, batch_width, batch_height]).type_as(pred_scores)
         batch_size = pred_scores.shape[0]

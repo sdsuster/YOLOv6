@@ -156,7 +156,7 @@ def run(data,
     # eval
     model.eval()
     pred_result, vis_outputs, vis_paths = val.predict_model(model, dataloader, task)
-    eval_result = val.eval_model(pred_result, model, dataloader, task)
+    eval_result = val.eval_model(pred_result, model, dataloader, task, anno_path='anno_path')
     return eval_result, vis_outputs, vis_paths
 
 

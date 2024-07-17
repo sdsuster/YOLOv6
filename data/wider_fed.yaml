@@ -6,6 +6,8 @@ val: d:\datasets\WIDER\WIDER_val\images # val images
 fed_train: d:\Datasets\Exp-W\data\train\images
 fed_val: d:\Datasets\Exp-W\data\val\images
 
+anno_path: d:\Datasets\Exp-W\data\annotations\instances_images.json
+
 # whether it is coco dataset, only coco dataset should be set to True.
 is_coco: False
 # Classes

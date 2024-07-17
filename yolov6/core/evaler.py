@@ -230,7 +230,7 @@ class Evaler:
         return pred_results, vis_outputs, vis_paths
 
 
-    def eval_model(self, pred_results, model, dataloader, task):
+    def eval_model(self, pred_results, model, dataloader, task, anno_path='anno_path'):
         '''Evaluate models
         For task speed, this function only evaluates the speed of model and outputs inference time.
         For task val, this function evaluates the speed and mAP by pycocotools, and returns
@@ -243,8 +243,8 @@ class Evaler:
             return self.pr_metric_result
         LOGGER.info(f'\nEvaluating mAP by pycocotools.')
         if task != 'speed' and len(pred_results):
-            if 'anno_path' in self.data:
-                anno_json = self.data['anno_path']
+            if anno_path in self.data:
+                anno_json = self.data[anno_path]
             else:
                 # generated coco format labels in dataset initialization
                 task = 'val' if task == 'train' else task
