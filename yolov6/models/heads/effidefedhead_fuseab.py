@@ -162,7 +162,7 @@ class Detect(nn.Module):
                 cls_output_ab = cls_output_ab.reshape(b, self.na, -1, h, w).permute(0,1,3,4,2)
                 cls_score_list_ab.append(cls_output_ab.flatten(1,3))
 
-                cls_ped_output_ab = torch.softmax(cls_ped_output_ab, dim=1, dtype=torch.float16)
+                cls_ped_output_ab = torch.sigmoid(cls_ped_output_ab)
                 cls_ped_output_ab = cls_ped_output_ab.reshape(b, self.na, -1, h, w).permute(0,1,3,4,2)
                 cls_ped_score_list_ab.append(cls_ped_output_ab.flatten(1,3))
 
@@ -177,17 +177,19 @@ class Detect(nn.Module):
 
                 cls_output_af = torch.sigmoid(cls_output_af)
                 cls_score_list_af.append(cls_output_af.flatten(2).permute((0, 2, 1)))
-                cls_ped_output_af = torch.softmax(cls_ped_output_af, dim=1, dtype=torch.float16)
+                cls_ped_output_af = torch.sigmoid(cls_ped_output_af)
                 cls_ped_score_list_af.append(cls_ped_output_af.flatten(2).permute((0, 2, 1)))
                 reg_dist_list_af.append(reg_output_af.flatten(2).permute((0, 2, 1)))
 
 
             cls_score_list_ab = torch.cat(cls_score_list_ab, axis=1)
             cls_ped_score_list_ab = torch.cat(cls_ped_score_list_ab, axis=1)
+            cls_ped_score_list_ab = torch.softmax(cls_ped_score_list_ab, dim=-1, dtype=torch.float16)
             cls_ped_score_list_ab *= cls_score_list_ab
             reg_dist_list_ab = torch.cat(reg_dist_list_ab, axis=1)
             cls_score_list_af = torch.cat(cls_score_list_af, axis=1)
             cls_ped_score_list_af = torch.cat(cls_ped_score_list_af, axis=1)
+            cls_ped_score_list_af = torch.softmax(cls_ped_score_list_af, dim=-1, dtype=torch.float16)
             cls_ped_score_list_af *= cls_score_list_af
             reg_dist_list_af = torch.cat(reg_dist_list_af, axis=1)
             return x, cls_score_list_ab, reg_dist_list_ab, cls_score_list_af, reg_dist_list_af, cls_ped_score_list_ab, cls_ped_score_list_af
