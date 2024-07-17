@@ -55,7 +55,7 @@ class Trainer:
         self.num_classes = self.data_dict['nc']
         # get model and optimizer
         self.distill_ns = True if self.args.distill and self.cfg.model.type in ['YOLOv6n','YOLOv6s'] else False
-        model = self.get_model(args, cfg, self.num_classes, device, self.data_dict['ne'])
+        model = self.get_model(args, cfg, self.num_classes, device, self.data_dict['ne'] if self.args.fed_training else 0)
         if self.args.distill:
             if self.args.fuse_ab:
                 LOGGER.error('ERROR in: Distill models should turn off the fuse_ab.\n')
@@ -485,6 +485,9 @@ class Trainer:
                 download_ckpt(weights)
             LOGGER.info(f'Loading state_dict from {weights} for fine-tuning...')
             model = load_state_dict(weights, model, map_location=device)
+        # for name, param in model.named_parameters():
+        #     print(f'Layer: {name} | Size: {param.size()} | Trainable : {param.requires_grad} \n')
+        # exit()
         LOGGER.info('Model: {}'.format(model))
         return model
 

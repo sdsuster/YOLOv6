@@ -202,14 +202,19 @@ class Detect(nn.Module):
             cls_score_list_ab = torch.cat(cls_score_list_ab, axis=1)
             cls_ped_score_list_ab = torch.cat(cls_ped_score_list_ab, axis=1)
             # cls_ped_score_list_ab = self.softmax_ab(cls_ped_score_list_ab).half()
+            # for param in self.cls_ped_preds[2].parameters():
+            #      print(param.data)
             # print(cls_ped_score_list_ab[1, :5, :])
-            # cls_ped_score_list_ab *= cls_score_list_ab
+            if torch.any(cls_ped_score_list_ab > 0.5):
+                print(f"The tensor contains values greater than 0.5.")
+            # cls_ped_score_list_ab += cls_score_list_ab
             reg_dist_list_ab = torch.cat(reg_dist_list_ab, axis=1)
             cls_score_list_af = torch.cat(cls_score_list_af, axis=1)
             cls_ped_score_list_af = torch.cat(cls_ped_score_list_af, axis=1)
             # cls_ped_score_list_af = self.softmax_af(cls_ped_score_list_af).half()
+            # print(cls_ped_score_list_af[1,:5])
             # print(cls_ped_score_list_af[1, :5, :])
-            # cls_ped_score_list_af *= cls_score_list_af
+            # cls_ped_score_list_af += cls_score_list_af
             reg_dist_list_af = torch.cat(reg_dist_list_af, axis=1)
             return x, cls_score_list_ab, reg_dist_list_ab, cls_score_list_af, reg_dist_list_af, cls_ped_score_list_ab, cls_ped_score_list_af
 

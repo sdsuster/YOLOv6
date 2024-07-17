@@ -1,0 +1,18 @@
+# Please insure that your custom_dataset are put in same parent dir with YOLOv6_DIR
+# train: d:\datasets\WIDER\WIDER_train\images # train images
+# val: d:\datasets\WIDER\WIDER_val\images # val images
+# test: ./datasets/WIDER/test # test images (optional)
+
+train: d:\Datasets\Exp-W\data\train\images
+val: d:\Datasets\Exp-W\data\val\images
+
+anno_path: d:\Datasets\Exp-W\data\annotations\instances_images.json
+
+# whether it is coco dataset, only coco dataset should be set to True.
+is_coco: False
+# Classes
+# nc: 1  # number of classes
+# names: ['face']  # class names
+
+nc: 7 # number of emotion classes
+names: ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
