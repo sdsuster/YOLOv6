@@ -14,3 +14,4 @@ is_coco: False
 
 nc: 7 # number of emotion classes
 names: ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
+class_numbers: [2866, 3121, 863, 24299, 8435, 5665, 28091] # number of images of classes

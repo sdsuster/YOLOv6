@@ -140,20 +140,10 @@ def build_network(config, channels, num_classes, num_layers, fuse_ab=False, dist
         from yolov6.models.effidehead import Detect, build_effidehead_layer
         head_layers = build_effidehead_layer(channels_list, 1, num_classes, reg_max=reg_max, num_layers=num_layers)
         head = Detect(num_classes, num_layers, head_layers=head_layers, use_dfl=use_dfl)
-    print("FED TRAINING", fed_training)
-    if fed_training:
-        for param in backbone.parameters():
-            param.requires_grad = False
-        
-        for param in neck.parameters():
-            param.requires_grad = False
-        
-        # for param in head.parameters():
-        #     param.requires_grad = False
         
     return backbone, neck, head
 
 
-def build_model(cfg, num_classes, device, fuse_ab=False, distill_ns=False, fed_training = False, num_emotions = 7):
-    model = Model(cfg, channels=3, num_classes=num_classes, fuse_ab=fuse_ab, distill_ns=distill_ns, fed_training=fed_training, num_emotions=num_emotions).to(device)
+def build_model(cfg, num_classes, device, fuse_ab=False, distill_ns=False):
+    model = Model(cfg, channels=3, num_classes=num_classes, fuse_ab=fuse_ab, distill_ns=distill_ns).to(device)
     return model

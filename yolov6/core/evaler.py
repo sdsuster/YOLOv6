@@ -39,7 +39,6 @@ class Evaler:
                  specific_shape=False,
                  height=640,
                  width=640,
-                 multi_tasks_classes_numbers=None
                  ):
         assert do_pr_metric or do_coco_metric, 'ERROR: at least set one val metric'
         self.data = data
@@ -60,7 +59,6 @@ class Evaler:
         self.specific_shape = specific_shape
         self.height = height
         self.width = width
-        self.multi_tasks_classes_numbers = multi_tasks_classes_numbers
 
     def init_model(self, model, weights, task):
         if task != 'train':
@@ -132,7 +130,7 @@ class Evaler:
 
             # post-process
             t3 = time_sync()
-            outputs = non_max_suppression(outputs, self.conf_thres, self.iou_thres, multi_label=True, multi_tasks_classes_numbers=[7])
+            outputs = non_max_suppression(outputs, self.conf_thres, self.iou_thres, multi_label=True)
             self.speed_result[3] += time_sync() - t3  # post-process time
             self.speed_result[0] += len(outputs)
 
@@ -370,13 +368,9 @@ class Evaler:
             image_id = int(path.stem) if self.is_coco else path.stem
             bboxes = self.box_convert(pred[:, 0:4])
             bboxes[:, :2] -= bboxes[:, 2:] / 2
-            
-            if self.multi_tasks_classes_numbers is not None:
-                cls = pred[:, 7]
-                scores = pred[:, 6]
-            else:
-                cls = pred[:, 5]
-                scores = pred[:, 4]
+            cls = pred[:, 5]
+            scores = pred[:, 4]
+
             for ind in range(pred.shape[0]):
                 category_id = ids[int(cls[ind])]
                 bbox = [round(x, 3) for x in bboxes[ind].tolist()]

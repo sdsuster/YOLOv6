@@ -21,8 +21,8 @@ from yolov6.data.data_load import create_dataloader
 from yolov6.models.yolo import build_model
 from yolov6.models.yolo_lite import build_model as build_lite_model
 
-from yolov6.models.losses.loss import ComputeLoss as ComputeLoss, ComputeLossFED as ComputeLossFED
-from yolov6.models.losses.loss_fuseab import ComputeLoss as ComputeLoss_ab, ComputeLossFED as ComputeLossFED_ab
+from yolov6.models.losses.loss import ComputeLoss as ComputeLoss
+from yolov6.models.losses.loss_fuseab import ComputeLoss as ComputeLoss_ab
 from yolov6.models.losses.loss_distill import ComputeLoss as ComputeLoss_distill
 from yolov6.models.losses.loss_distill_ns import ComputeLoss as ComputeLoss_distill_ns
 
@@ -53,9 +53,10 @@ class Trainer:
         # get data loader
         self.data_dict = load_yaml(args.data_path)
         self.num_classes = self.data_dict['nc']
+        self.class_weights = torch.tensor(self.get_class_weights(), device=device)
         # get model and optimizer
         self.distill_ns = True if self.args.distill and self.cfg.model.type in ['YOLOv6n','YOLOv6s'] else False
-        model = self.get_model(args, cfg, self.num_classes, device, self.data_dict['ne'] if self.args.fed_training else 0)
+        model = self.get_model(args, cfg, self.num_classes, device)
         if self.args.distill:
             if self.args.fuse_ab:
                 LOGGER.error('ERROR in: Distill models should turn off the fuse_ab.\n')
@@ -88,10 +89,7 @@ class Trainer:
                 self.cfg.data_aug.mosaic = 0.0
                 self.cfg.data_aug.mixup = 0.0
 
-        if self.args.fed_training:
-            self.train_loader, self.val_loader = self.get_fed_data_loader(self.args, self.cfg, self.data_dict)
-        else:
-            self.train_loader, self.val_loader = self.get_data_loader(self.args, self.cfg, self.data_dict)
+        self.train_loader, self.val_loader = self.get_data_loader(self.args, self.cfg, self.data_dict)
 
         self.model = self.parallel_model(args, model, device)
         self.model.nc, self.model.names = self.data_dict['nc'], self.data_dict['names']
@@ -162,21 +160,12 @@ class Trainer:
                                                                   batch_height, batch_width)
 
             elif self.args.fuse_ab:
-                if self.args.fed_training:
-                    total_loss, loss_items = self.compute_loss((preds[0],preds[6],preds[4]), targets, epoch_num,
-                                                                step_num, batch_height, batch_width) # YOLOv6_af
-                    total_loss_ab, loss_items_ab = self.compute_loss_ab((preds[0],preds[5],preds[2]), targets, epoch_num, step_num,
-                                                                        batch_height, batch_width) # YOLOv6_ab
-                    total_loss += total_loss_ab
-                    loss_items += loss_items_ab
-                    
-                else:
-                    total_loss, loss_items = self.compute_loss((preds[0],preds[3],preds[4]), targets, epoch_num,
-                                                                step_num, batch_height, batch_width) # YOLOv6_af
-                    total_loss_ab, loss_items_ab = self.compute_loss_ab(preds[:3], targets, epoch_num, step_num,
-                                                                        batch_height, batch_width) # YOLOv6_ab
-                    total_loss += total_loss_ab
-                    loss_items += loss_items_ab
+                total_loss, loss_items = self.compute_loss((preds[0],preds[3],preds[4]), targets, epoch_num,
+                                                            step_num, batch_height, batch_width) # YOLOv6_af
+                total_loss_ab, loss_items_ab = self.compute_loss_ab(preds[:3], targets, epoch_num, step_num,
+                                                                    batch_height, batch_width) # YOLOv6_ab
+                total_loss += total_loss_ab
+                loss_items += loss_items_ab
 
             else:
                 total_loss, loss_items = self.compute_loss(preds, targets, epoch_num, step_num,
@@ -245,7 +234,6 @@ class Trainer:
                             specific_shape=self.specific_shape,
                             height=self.height,
                             width=self.width,
-                            multi_tasks_classes_numbers=[self.data_dict['ne']] if self.args.fed_training else None
                             )
         else:
             def get_cfg_value(cfg_dict, value_str, default_value):
@@ -275,7 +263,6 @@ class Trainer:
                             specific_shape=self.specific_shape,
                             height=self.height,
                             width=self.width,
-                            multi_tasks_classes_numbers=[self.data_dict['ne']] if self.args.fed_training else None
                             )
 
         LOGGER.info(f"Epoch: {self.epoch} | mAP@0.5: {results[0]} | mAP@0.50:0.95: {results[1]}")
@@ -301,40 +288,24 @@ class Trainer:
             self.best_ap = self.evaluate_results[1]
             self.best_stop_strong_aug_ap = self.evaluate_results[1]
 
-        if self.args.fed_training:
-            self.compute_loss = ComputeLossFED(num_classes=self.data_dict['ne'],
-                                            ori_img_size=self.img_size,
-                                            warmup_epoch=self.cfg.model.head.atss_warmup_epoch,
-                                            use_dfl=self.cfg.model.head.use_dfl,
-                                            reg_max=self.cfg.model.head.reg_max,
-                                            iou_type=self.cfg.model.head.iou_type,
-                                            fpn_strides=self.cfg.model.head.strides)
-        else:   
-            self.compute_loss = ComputeLoss(num_classes=self.data_dict['nc'],
-                                            ori_img_size=self.img_size,
-                                            warmup_epoch=self.cfg.model.head.atss_warmup_epoch,
-                                            use_dfl=self.cfg.model.head.use_dfl,
-                                            reg_max=self.cfg.model.head.reg_max,
-                                            iou_type=self.cfg.model.head.iou_type,
-                                            fpn_strides=self.cfg.model.head.strides)
+        self.compute_loss = ComputeLoss(num_classes=self.data_dict['nc'],
+                                        ori_img_size=self.img_size,
+                                        warmup_epoch=self.cfg.model.head.atss_warmup_epoch,
+                                        use_dfl=self.cfg.model.head.use_dfl,
+                                        reg_max=self.cfg.model.head.reg_max,
+                                        iou_type=self.cfg.model.head.iou_type,
+                                        fpn_strides=self.cfg.model.head.strides,
+                                        class_weights=self.class_weights)
 
         if self.args.fuse_ab:
-            if self.args.fed_training:
-                self.compute_loss_ab = ComputeLossFED_ab(num_classes=self.data_dict['ne'],
-                                            ori_img_size=self.img_size,
-                                            warmup_epoch=0,
-                                            use_dfl=False,
-                                            reg_max=0,
-                                            iou_type=self.cfg.model.head.iou_type,
-                                            fpn_strides=self.cfg.model.head.strides,)
-            else:
-                self.compute_loss_ab = ComputeLoss_ab(num_classes=self.data_dict['nc'],
-                                            ori_img_size=self.img_size,
-                                            warmup_epoch=0,
-                                            use_dfl=False,
-                                            reg_max=0,
-                                            iou_type=self.cfg.model.head.iou_type,
-                                            fpn_strides=self.cfg.model.head.strides,
+            self.compute_loss_ab = ComputeLoss_ab(num_classes=self.data_dict['nc'],
+                                        ori_img_size=self.img_size,
+                                        warmup_epoch=0,
+                                        use_dfl=False,
+                                        reg_max=0,
+                                        iou_type=self.cfg.model.head.iou_type,
+                                        fpn_strides=self.cfg.model.head.strides,
+                                        class_weights=self.class_weights
                                             )
         if self.args.distill :
             if self.cfg.model.type in ['YOLOv6n','YOLOv6s']:
@@ -359,10 +330,7 @@ class Trainer:
             self.cfg.data_aug.mosaic = 0.0
             self.cfg.data_aug.mixup = 0.0
             self.args.cache_ram = False # disable cache ram when stop strong augmentation.
-            if self.args.fed_training:
-                self.train_loader, self.val_loader = self.get_fed_data_loader(self.args, self.cfg, self.data_dict)
-            else:
-                self.train_loader, self.val_loader = self.get_data_loader(self.args, self.cfg, self.data_dict)
+            self.train_loader, self.val_loader = self.get_data_loader(self.args, self.cfg, self.data_dict)
         self.model.train()
         if self.rank != -1:
             self.train_loader.sampler.set_epoch(self.epoch)
@@ -439,55 +407,24 @@ class Trainer:
         return train_loader, val_loader
 
     @staticmethod
-    def get_fed_data_loader(args, cfg, data_dict):
-        train_path, val_path = data_dict['fed_train'], data_dict['fed_val']
-        # check data
-        nc = int(data_dict['ne'])
-        class_names = data_dict['fed_names']
-        assert len(class_names) == nc, f'the length of fed class names does not match the number of classes defined'
-        grid_size = max(int(max(cfg.model.head.strides)), 32)
-        # create train dataloader
-        train_loader = create_dataloader(train_path, args.img_size, args.batch_size // args.world_size, grid_size,
-                                         hyp=dict(cfg.data_aug), augment=True, rect=args.rect, rank=args.local_rank,
-                                         workers=args.workers, shuffle=True, check_images=args.check_images,
-                                         check_labels=args.check_labels, data_dict=data_dict, task='train',
-                                         specific_shape=args.specific_shape, height=args.height, width=args.width,
-                                         cache_ram=args.cache_ram, class_name_path='fed_names')[0]
-        # create val dataloader
-        val_loader = None
-        if args.rank in [-1, 0]:
-             # TODO: check whether to set rect to self.rect?
-            val_loader = create_dataloader(val_path, args.img_size, args.batch_size // args.world_size * 2, grid_size,
-                                           hyp=dict(cfg.data_aug), rect=True, rank=-1, pad=0.5,
-                                           workers=args.workers, check_images=args.check_images,
-                                           check_labels=args.check_labels, data_dict=data_dict, task='val',
-                                           specific_shape=args.specific_shape, height=args.height, width=args.width,
-                                           cache_ram=args.cache_ram, class_name_path='fed_names')[0]
-
-        return train_loader, val_loader
-    
-    @staticmethod
     def prepro_data(batch_data, device):
         images = batch_data[0].to(device, non_blocking=True).float() / 255
         targets = batch_data[1].to(device)
         return images, targets
 
-    def get_model(self, args, cfg, nc, device, ne=7):
+    def get_model(self, args, cfg, nc, device):
         if 'YOLOv6-lite' in cfg.model.type:
             assert not self.args.fuse_ab, 'ERROR in: YOLOv6-lite models not support fuse_ab mode.'
             assert not self.args.distill, 'ERROR in: YOLOv6-lite models not support distill mode.'
             model = build_lite_model(cfg, nc, device)
         else:
-            model = build_model(cfg, nc, device, fuse_ab=self.args.fuse_ab, distill_ns=self.distill_ns, fed_training=args.fed_training, num_emotions=ne)
+            model = build_model(cfg, nc, device, fuse_ab=self.args.fuse_ab, distill_ns=self.distill_ns)
         weights = cfg.model.pretrained
         if weights:  # finetune if pretrained model is set
             if not os.path.exists(weights):
                 download_ckpt(weights)
             LOGGER.info(f'Loading state_dict from {weights} for fine-tuning...')
             model = load_state_dict(weights, model, map_location=device)
-        # for name, param in model.named_parameters():
-        #     print(f'Layer: {name} | Size: {param.size()} | Trainable : {param.requires_grad} \n')
-        # exit()
         LOGGER.info('Model: {}'.format(model))
         return model
 
@@ -657,3 +594,9 @@ class Trainer:
                 assert cfg.qat.calib_pt is not None, 'Please provide calibrated model'
                 model.load_state_dict(torch.load(cfg.qat.calib_pt)['model'].float().state_dict())
             model.to(device)
+
+    def get_class_weights(self):
+        if 'class_numbers' in self.data_dict:
+            arr = np.array(self.data_dict['class_numbers'])
+            total = arr.sum(keepdims=False)
+            return total/(self.data_dict['nc'] * arr)
