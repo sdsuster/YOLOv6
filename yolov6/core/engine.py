@@ -53,7 +53,8 @@ class Trainer:
         # get data loader
         self.data_dict = load_yaml(args.data_path)
         self.num_classes = self.data_dict['nc']
-        self.class_weights = torch.tensor(self.get_class_weights(), device=device)
+        class_weights = self.get_class_weights()
+        self.class_weights = torch.tensor(class_weights, device=device) if class_weights is not None else None
         # get model and optimizer
         self.distill_ns = True if self.args.distill and self.cfg.model.type in ['YOLOv6n','YOLOv6s'] else False
         model = self.get_model(args, cfg, self.num_classes, device)
